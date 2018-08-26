@@ -4,6 +4,7 @@
       <w>blinky</w>
       <w>pacman</w>
       <w>pinky</w>
+      <w>pygame</w>
     </words>
   </dictionary>
 </component>

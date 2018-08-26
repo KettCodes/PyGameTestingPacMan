@@ -101,8 +101,8 @@ class PacMap:
                         next_block_to_add.append((rollover(col+1, num_wide), row))
 
                 self.map[col][row] = MapBlock(up, left, right, down)
-                print('MapBlock created at ({}, {}) with attributes up={}, left={}, right={}, down={}'.format(
-                             col, row, up, left, right, down))
+                # print('MapBlock created at ({}, {}) with attributes up={}, left={}, right={}, down={}'.format(
+                #              col, row, up, left, right, down))
             next_block_to_add.remove(current)
 
         for i in range(int((num_wide - 1) / 2)+1):
@@ -149,29 +149,19 @@ class MapBlock:
         return False
 
 
-class Pellet:
-    def __init__(self):
-        pass
-
-
-class PowerPellet(Pellet):
-    def __init__(self):
-        pass
-
-
-class Pacman:
+class Pacman(pygame.sprite.Sprite):
     moving_dir = 0
     next_dir = 0
-    x = 2
-    y = 2
+    centre_x = None
+    centre_y = None
     death = []
     move_up = []
     move_left = []
     move_right = []
     move_down = []
-    current_img = None
 
     def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
         for i in range(12):
             if i < 2:
                 self.move_up.append(pygame.image.load(os.path.abspath(
@@ -184,16 +174,97 @@ class Pacman:
                     os.path.join('.', 'PacmanPics\Move\PacDown{}.jpg'.format(i + 1)))))
             self.death.append(pygame.image.load(os.path.abspath(
                     os.path.join('.', 'PacmanPics\Death\PacDeath{}.jpg'.format(i + 1)))))
-        self.current_img = self.death[0]
+        self.death[0] = pygame.image.load(os.path.abspath(
+                    os.path.join('.', 'PacmanPics\Death\PacDeath1.png'))).convert_alpha()
+        self.image = self.death[0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.centre_x = self.rect.center[0]
+        self.centre_y = self.rect.center[1]
+
+    def turn(self, mr_map, tile_size):
+        if self.moving_dir == 0 and \
+                mr_map.map[int(self.rect.x / tile_size)][int(self.rect.y / tile_size)].check_dir(self.next_dir):
+            self.moving_dir = self.next_dir
+        elif (self.moving_dir == 'UP' or self.moving_dir == 'DOWN') and self.rect.y % tile_size == 2:
+            if mr_map.map[int(self.rect.x / tile_size)][int(self.rect.y / tile_size)].check_dir(self.next_dir):
+                self.moving_dir = self.next_dir
+            elif mr_map.map[int(self.rect.x / tile_size)][int(self.rect.y / tile_size)].check_dir(self.moving_dir):
+                pass
+            else:
+                self.moving_dir = 0
+        elif (self.moving_dir == 'RIGHT' or self.moving_dir == 'LEFT') and self.rect.x % tile_size == 2:
+            if mr_map.map[int(self.rect.x / tile_size)][int(self.rect.y / tile_size)].check_dir(self.next_dir):
+                self.moving_dir = self.next_dir
+            elif mr_map.map[int(self.rect.x / tile_size)][int(self.rect.y / tile_size)].check_dir(self.moving_dir):
+                pass
+            else:
+                self.moving_dir = 0
+
+    def move(self, max_w, max_h):
+        if self.moving_dir == 'UP':
+            if self.image == self.move_up[0]:
+                self.image = self.move_up[1]
+            else:
+                self.image = self.move_up[0]
+            self.rect.y = rollover(self.rect.y + 4, max_h) - 5
+        if self.moving_dir == 'DOWN':
+            if self.image == self.move_down[0]:
+                self.image = self.move_down[1]
+            else:
+                self.image = self.move_down[0]
+            self.rect.y = rollover(self.rect.y + 6, max_h) - 5
+        if self.moving_dir == 'LEFT':
+            if self.image == self.move_left[0]:
+                self.image = self.move_left[1]
+            else:
+                self.image = self.move_left[0]
+            self.rect.x = rollover(self.rect.x + 4, max_w) - 5
+        if self.moving_dir == 'RIGHT':
+            if self.image == self.move_right[0]:
+                self.image = self.move_right[1]
+            else:
+                self.image = self.move_right[0]
+            self.rect.x = rollover(self.rect.x + 6, max_w) - 5
 
 
-class Ghost:
+class Ghost(pygame.sprite.Sprite):
     def __init__(self):
-        pass
+        pygame.sprite.Sprite.__init__(self)
 
 
 class Blinky(Ghost):
-    pass
+    moving_dir = 0
+    next_dir = 0
+    rect = None
+    x = None
+    y = None
+    centre_x = 0
+    centre_y = 0
+    death = []
+    move_up = []
+    move_left = []
+    move_right = []
+    move_down = []
+    current_img = None
+    sprite_mask = None
+
+    def __init__(self):
+        Ghost.__init__(self)
+        for i in range(2):
+            self.move_up.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Blinky\BlinkyUp{}.png'.format(i + 1)))))
+            self.move_left.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Blinky\BlinkyLeft{}.png'.format(i + 1)))))
+            self.move_right.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Blinky\BlinkyRight{}.png'.format(i + 1)))))
+            self.move_down.append(pygame.image.load(os.path.abspath(
+                    os.path.join('.', 'GhostPics\Blinky\BlinkyDown{}.png'.format(i + 1)))))
+        self.current_img = self.move_down[0]
+        self.sprite_mask = pygame.mask.from_surface(self.current_img)
+        self.rect = self.current_img.get_rect()
+        self.centre_x = self.rect.center[0]
+        self.centre_y = self.rect.center[1]
 
 
 class Pinky(Ghost):
@@ -206,3 +277,15 @@ class Inky(Ghost):
 
 class Clyde(Ghost):
     pass
+
+
+class Pellet(pygame.sprite.Sprite):
+
+    def __init__(self, xpos, ypos):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface((2, 2))
+        self.image.fill((255, 255, 255))
+        self.rect = self.image.get_rect()
+        self.rect.x = xpos
+        self.rect.y = ypos
+        self.mask = pygame.mask.from_surface(self.image)
