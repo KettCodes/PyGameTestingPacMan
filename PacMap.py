@@ -229,25 +229,100 @@ class Pacman(pygame.sprite.Sprite):
 
 
 class Ghost(pygame.sprite.Sprite):
+    mode = "CHASE"
+    moving_dir = 0
+    centre_x = 0
+    centre_y = 0
+    scatter_target = (0, 0)
+    death = []
+
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
 
+    def move(self, mr_map, tile_size, pacman):
+        self.turn(mr_map, tile_size, pacman)
+        if self.moving_dir == 'UP':
+            if self.image == self.move_up[0]:
+                self.image = self.move_up[1]
+            else:
+                self.image = self.move_up[0]
+            self.rect.y = rollover(self.rect.y + 4, tile_size * len(mr_map.map[0])) - 5
+        if self.moving_dir == 'DOWN':
+            if self.image == self.move_down[0]:
+                self.image = self.move_down[1]
+            else:
+                self.image = self.move_down[0]
+            self.rect.y = rollover(self.rect.y + 6, tile_size * len(mr_map.map[0])) - 5
+        if self.moving_dir == 'LEFT':
+            if self.image == self.move_left[0]:
+                self.image = self.move_left[1]
+            else:
+                self.image = self.move_left[0]
+            self.rect.x = rollover(self.rect.x + 4, tile_size * len(mr_map.map)) - 5
+        if self.moving_dir == 'RIGHT':
+            if self.image == self.move_right[0]:
+                self.image = self.move_right[1]
+            else:
+                self.image = self.move_right[0]
+            self.rect.x = rollover(self.rect.x + 6, tile_size * len(mr_map.map)) - 5
+
+    def turn(self, mr_map, tile_size, pacman):
+        if self.moving_dir == 0 or \
+                ((self.moving_dir == 'UP' or self.moving_dir == 'DOWN') and self.rect.y % tile_size == 2) or \
+                ((self.moving_dir == 'RIGHT' or self.moving_dir == 'LEFT') and self.rect.x % tile_size == 2):
+            if self.mode == "CHASE":
+                self.moving_dir = self.find_next_dir(mr_map.map, tile_size,
+                                                     self.find_target(mr_map.map, tile_size, pacman))
+            else:
+                self.moving_dir = self.find_next_dir(mr_map.map, tile_size, self.scatter_target)
+
+    def find_next_dir(self, map, tile_size, target_pos):
+        direction = [[None for i in range(len(map[j]))] for j in range(len(map))]
+        queue = [(int(self.rect.x/tile_size), int(self.rect.y/tile_size))]
+        if map[queue[0][0]][queue[0][1]].up and not direction[queue[0][0]][rollover(queue[0][1] - 1, len(map[0]))]:
+            queue.append((queue[0][0], rollover(queue[0][1] - 1, len(map[0]))))
+            direction[queue[0][0]][rollover(queue[0][1] - 1, len(map[0]))] = "UP"
+        if map[queue[0][0]][queue[0][1]].down and not direction[queue[0][0]][rollover(queue[0][1] + 1, len(map[0]))]:
+            queue.append((queue[0][0], rollover(queue[0][1] + 1, len(map[0]))))
+            direction[queue[0][0]][rollover(queue[0][1] + 1, len(map[0]))] = "DOWN"
+        if map[queue[0][0]][queue[0][1]].left and not direction[rollover(queue[0][0] - 1, len(map))][queue[0][1]]:
+            queue.append((rollover(queue[0][0] - 1, len(map)), queue[0][1]))
+            direction[rollover(queue[0][0] - 1, len(map))][queue[0][1]] = "LEFT"
+        if map[queue[0][0]][queue[0][1]].right and not direction[rollover(queue[0][0] + 1, len(map))][queue[0][1]]:
+            queue.append((rollover(queue[0][0] + 1, len(map)), queue[0][1]))
+            direction[rollover(queue[0][0] + 1, len(map))][queue[0][1]] = "RIGHT"
+        queue.remove(queue[0])
+
+        while not direction[target_pos[0]][target_pos[1]]:
+            if map[queue[0][0]][queue[0][1]].up and not direction[queue[0][0]][rollover(queue[0][1] - 1, len(map[0]))]:
+                queue.append((queue[0][0], rollover(queue[0][1]-1, len(map[0]))))
+                direction[queue[0][0]][rollover(queue[0][1] - 1, len(map[0]))] = direction[queue[0][0]][queue[0][1]]
+            if map[queue[0][0]][queue[0][1]].down and not direction[queue[0][0]][rollover(queue[0][1] + 1, len(map[0]))]:
+                queue.append((queue[0][0], rollover(queue[0][1]+1, len(map[0]))))
+                direction[queue[0][0]][rollover(queue[0][1] + 1, len(map[0]))] = direction[queue[0][0]][queue[0][1]]
+            if map[queue[0][0]][queue[0][1]].left and not direction[rollover(queue[0][0] - 1, len(map))][queue[0][1]]:
+                queue.append((rollover(queue[0][0]-1, len(map)), queue[0][1]))
+                direction[rollover(queue[0][0] - 1, len(map))][queue[0][1]] = direction[queue[0][0]][queue[0][1]]
+            if map[queue[0][0]][queue[0][1]].right and not direction[rollover(queue[0][0] + 1, len(map))][queue[0][1]]:
+                queue.append((rollover(queue[0][0]+1, len(map)), queue[0][1]))
+                direction[rollover(queue[0][0] + 1, len(map))][queue[0][1]] = direction[queue[0][0]][queue[0][1]]
+            queue.remove(queue[0])
+
+        return direction[target_pos[0]][target_pos[1]]
+
+    def patience(self):
+        if self.image == self.move_up[0] or self.image == self.move_left[0] or \
+                self.image == self.move_right[0] or self.image == self.move_down[0]:
+            self.image = random.choice([self.move_up[1], self.move_left[1], self.move_right[1], self.move_down[1]])
+        else:
+            self.image = random.choice([self.move_up[0], self.move_left[0], self.move_right[0], self.move_down[0]])
+
 
 class Blinky(Ghost):
-    moving_dir = 0
-    next_dir = 0
-    rect = None
-    x = None
-    y = None
-    centre_x = 0
-    centre_y = 0
-    death = []
     move_up = []
     move_left = []
     move_right = []
     move_down = []
-    current_img = None
-    sprite_mask = None
 
     def __init__(self):
         Ghost.__init__(self)
@@ -260,20 +335,106 @@ class Blinky(Ghost):
                 os.path.join('.', 'GhostPics\Blinky\BlinkyRight{}.png'.format(i + 1)))))
             self.move_down.append(pygame.image.load(os.path.abspath(
                     os.path.join('.', 'GhostPics\Blinky\BlinkyDown{}.png'.format(i + 1)))))
-        self.current_img = self.move_down[0]
-        self.sprite_mask = pygame.mask.from_surface(self.current_img)
-        self.rect = self.current_img.get_rect()
+        self.image = self.move_down[0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
         self.centre_x = self.rect.center[0]
         self.centre_y = self.rect.center[1]
 
+    def find_target(self, map, tile_size, pacman):
+        return int(pacman.rect.x / tile_size), int(pacman.rect.y / tile_size)
+
 
 class Pinky(Ghost):
-    pass
+    move_up = []
+    move_left = []
+    move_right = []
+    move_down = []
+
+    def __init__(self):
+        Ghost.__init__(self)
+        for i in range(2):
+            self.move_up.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Pinky\PinkyUp{}.png'.format(i + 1)))))
+            self.move_left.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Pinky\PinkyLeft{}.png'.format(i + 1)))))
+            self.move_right.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Pinky\PinkyRight{}.png'.format(i + 1)))))
+            self.move_down.append(pygame.image.load(os.path.abspath(
+                    os.path.join('.', 'GhostPics\Pinky\PinkyDown{}.png'.format(i + 1)))))
+        self.image = self.move_down[0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.centre_x = self.rect.center[0]
+        self.centre_y = self.rect.center[1]
+
+    def find_target(self, map, tile_size, pacman):
+        target_x = int(pacman.rect.x / tile_size)
+        target_y = int(pacman.rect.y / tile_size)
+        max = 5
+        if pacman.moving_dir == "UP":
+            while map[target_x][target_y].up and max > 0:
+                target_y = rollover(target_y - 1, len(map[0]))
+                max -= 1
+        elif pacman.moving_dir == "DOWN":
+            while map[target_x][target_y].down and max > 0:
+                target_y = rollover(target_y + 1, len(map[0]))
+                max -= 1
+        elif pacman.moving_dir == "LEFT":
+            while map[target_x][target_y].left and max > 0:
+                target_x = rollover(target_x - 1, len(map))
+                max -= 1
+        elif pacman.moving_dir == "RIGHT":
+            while map[target_x][target_y].right and max > 0:
+                target_x = rollover(target_x + 1, len(map))
+                max -= 1
+        return target_x, target_y
 
 
 class Inky(Ghost):
-    pass
+    move_up = []
+    move_left = []
+    move_right = []
+    move_down = []
 
+    def __init__(self):
+        Ghost.__init__(self)
+        for i in range(2):
+            self.move_up.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Inky\InkyUp{}.png'.format(i + 1)))))
+            self.move_left.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Inky\InkyLeft{}.png'.format(i + 1)))))
+            self.move_right.append(pygame.image.load(os.path.abspath(
+                os.path.join('.', 'GhostPics\Inky\InkyRight{}.png'.format(i + 1)))))
+            self.move_down.append(pygame.image.load(os.path.abspath(
+                    os.path.join('.', 'GhostPics\Inky\InkyDown{}.png'.format(i + 1)))))
+        self.image = self.move_down[0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.centre_x = self.rect.center[0]
+        self.centre_y = self.rect.center[1]
+
+    def find_target(self, map, tile_size, pacman):
+        target_x = int(pacman.rect.x / tile_size)
+        target_y = int(pacman.rect.y / tile_size)
+        max = 5
+        if pacman.moving_dir == "UP":
+            while map[target_x][target_y].up and max > 0:
+                target_y = rollover(target_y - 1, len(map[0]))
+                max -= 1
+        elif pacman.moving_dir == "DOWN":
+            while map[target_x][target_y].down and max > 0:
+                target_y = rollover(target_y + 1, len(map[0]))
+                max -= 1
+        elif pacman.moving_dir == "LEFT":
+            while map[target_x][target_y].left and max > 0:
+                target_x = rollover(target_x - 1, len(map))
+                max -= 1
+        elif pacman.moving_dir == "RIGHT":
+            while map[target_x][target_y].right and max > 0:
+                target_x = rollover(target_x + 1, len(map))
+                max -= 1
+        return target_x, target_y
 
 class Clyde(Ghost):
     pass

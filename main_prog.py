@@ -11,8 +11,8 @@ def main():
     tile_size = 20
 
     # display setting information
-    display_w = (14*tile_size)+1
-    display_h = (17*tile_size)+1
+    display_w = (25*tile_size)+1
+    display_h = (22*tile_size)+1
 
     # store RGB colour codes for pygame in tuples
     rgb_black = (0, 0, 0)
@@ -42,14 +42,38 @@ def main():
     hero.rect.x = int(tile_size/2) - hero.centre_x
     hero.rect.y = index*tile_size + int(tile_size/2) - hero.centre_y
 
-    # create Blinky and place him above the jail
+    # create Blinky and place him above the ghost house
     blinky = PacMap.Blinky()
-    blinky.x = int(num_tiles_wide/2)*tile_size + int(tile_size/2) - blinky.centre_x
-    blinky.y = int((num_tiles_high-1)/2)*tile_size + int(tile_size/2) - blinky.centre_y
+    blinky.rect.x = int(num_tiles_wide/2)*tile_size + int(tile_size/2) - blinky.centre_x
+    blinky.rect.y = int((num_tiles_high-1)/2)*tile_size + int(tile_size/2) - blinky.centre_y
+    blinky.scatter_target = (num_tiles_wide - 1, index)
 
-    animation_tracker = 0
+    # create Pinky and place him in the ghost house
+    pinky = PacMap.Pinky()
+    pinky.rect.x = int(num_tiles_wide/2)*tile_size + int(tile_size/2) - pinky.centre_x
+    pinky.rect.y = (int((num_tiles_high-1)/2) + 1)*tile_size + int(tile_size/2) - pinky.centre_y
+    pinky.scatter_target = (0, index)
+
+    # set new index
+    index = num_tiles_high - 1
+    while not mr_map.map[0][index]:
+        index -= 1
+
+    # create Inky and place him in the ghost house
+    inky = PacMap.Inky()
+    inky.rect.x = (int(num_tiles_wide / 2) - 1) * tile_size + int(tile_size / 2) - inky.centre_x
+    inky.rect.y = (int((num_tiles_high - 1) / 2) + 1) * tile_size + int(tile_size / 2) - inky.centre_y
+    inky.scatter_target = (num_tiles_wide - 1, index)
+
+    # setup ghost groups
+    active_ghosts = pygame.sprite.Group()
+    passive_ghosts = pygame.sprite.Group()
+    active_ghosts.add(blinky)
+    passive_ghosts.add(pinky)
+    passive_ghosts.add(inky)
 
     # start the game loop
+    animation_tracker = 0
     continue_game = True
     while continue_game:
         animation_tracker += 1
@@ -60,15 +84,32 @@ def main():
         hero.turn(mr_map, tile_size)
         # moving Pacman
         hero.move(display_w, display_h)
-        # calculate ghost paths
-
         # move the ghosts
+        if animation_tracker%750 == 0:
+            for ghost in active_ghosts:
+                ghost.mode = "SCATTER"
+        elif (animation_tracker-150)%750 == 0:
+            for ghost in active_ghosts:
+                ghost.mode = "CHASE"
+
+        for ghost in active_ghosts:
+            ghost.move(mr_map, tile_size, hero)
+        for ghost in passive_ghosts:
+            ghost.patience()
+        if animation_tracker == 500:
+            pinky.rect.y -= tile_size
+            active_ghosts.add(pinky)
+            passive_ghosts.remove(pinky)
+        if animation_tracker == 1000:
+            inky.rect.y -= tile_size
+            active_ghosts.add(inky)
+            passive_ghosts.remove(inky)
 
         # test collisions
         for pellet in pygame.sprite.spritecollide(hero, pellet_list, True):
             print('collected pellet at ({}, {})'.format(pellet.rect.x, pellet.rect.y))
-        if hero.mask.overlap(blinky.sprite_mask, (hero.rect.x - blinky.x, hero.rect.y - blinky.y)):
-            print('Oh no!')
+        for ghost in pygame.sprite.spritecollide(hero, active_ghosts, False, pygame.sprite.collide_mask):
+            print('Oh no! You have been caught by {}'.format(ghost.__class__.__name__))
 
         # every 3 ticks execute drawing commands
         if animation_tracker % 3 == 0:
@@ -87,7 +128,9 @@ def main():
             # draw/blit the game objects
             pellet_list.draw(game_window)
             game_window.blit(hero.image, (hero.rect.x, hero.rect.y))
-            game_window.blit(blinky.current_img, (blinky.x, blinky.y))
+            game_window.blit(blinky.image, (blinky.rect.x, blinky.rect.y))
+            game_window.blit(pinky.image, (pinky.rect.x, pinky.rect.y))
+            game_window.blit(inky.image, (inky.rect.x, inky.rect.y))
             # after drawing update to the screen
             pygame.display.update()
         # clock frames updated
